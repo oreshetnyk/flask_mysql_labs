@@ -10,7 +10,8 @@ from datetime import datetime
 app = Flask(__name__)
 
 # Add Database
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///users.db'
+# app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///users.db'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://root:root@127.0.0.1:3307/users'
 # Add Secret Key
 app.config['SECRET_KEY'] = 'super secret sweet key'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
@@ -18,7 +19,7 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
 
 
-# Create Model
+# Create Model (Table)
 class Users(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(200), nullable=False)
@@ -33,8 +34,8 @@ class Users(db.Model):
         return '<Name %r>' % self.name
 
 
-#db.create_all()
-#db.session.commit()
+# db.create_all()
+# db.session.commit()
 
 
 # Create a Form Class
@@ -43,6 +44,23 @@ class UserForm(FlaskForm):
     email = StringField("Email", validators=[DataRequired()])
     submit = SubmitField("Submit")
 
+# Update Database Record
+@app.route('/update/<int:id>', methods=['GET', 'POST'])
+def update(id):
+    form = UserForm()
+    name_to_update = Users.query.get_or_404(id)
+    if request.method == "POST":
+        name_to_update.name = request.form['name']
+        name_to_update.email = request.form['email']
+        try:
+            db.session.commit()
+            flash('User Updated Successfully!')
+            return render_template('update.html', form=form, name_to_update=name_to_update)
+        except:
+            flash('Error... Try again!')
+            return render_template('update.html', form=form, name_to_update=name_to_update)
+    else:
+        return render_template("update.html", form=form, name_to_update=name_to_update)
 
 # Create a Form Class
 class NamerForm(FlaskForm):
