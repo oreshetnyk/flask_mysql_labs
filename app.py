@@ -6,6 +6,9 @@ from wtforms import StringField, SubmitField
 from wtforms.validators import DataRequired
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime
+from flask_migrate import Migrate
+
+
 
 app = Flask(__name__)
 
@@ -17,6 +20,7 @@ app.config['SECRET_KEY'] = 'super secret sweet key'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 # Initialize The Database
 db = SQLAlchemy(app)
+migrate = Migrate(app, db)
 
 
 # Create Model (Table)
@@ -24,6 +28,7 @@ class Users(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(200), nullable=False)
     email = db.Column(db.String(120), nullable=False, unique=True)
+    favorite_color = db.Column(db.String(120))
     date_added = db.Column(db.DateTime, default=datetime.utcnow)
 
     def _init__(self, name, email):
@@ -38,10 +43,28 @@ class Users(db.Model):
 # db.session.commit()
 
 
+@app.route('/delete/<int:id>')
+def delete(id):
+    user_to_delete = Users.query.get_or_404(id)
+    name = None
+    form = UserForm()
+    try:
+        db.session.delete(user_to_delete)
+        db.session.commit()
+        flash('User Deleted Successfully!')
+
+        our_users = Users.query.order_by(Users.date_added)
+        return render_template('add_user.html', form=form, name=name, our_users=our_users)
+    except:
+        flash('Error deleting user')
+        return render_template('add_user.html', form=form, name=name, our_users=our_users)
+
+
 # Create a Form Class
 class UserForm(FlaskForm):
     name = StringField("Name", validators=[DataRequired()])
     email = StringField("Email", validators=[DataRequired()])
+    favorite_color =  StringField("Favorite Color")
     submit = SubmitField("Submit")
 
 # Update Database Record
@@ -52,6 +75,7 @@ def update(id):
     if request.method == "POST":
         name_to_update.name = request.form['name']
         name_to_update.email = request.form['email']
+        name_to_update.favorite_color = request.form.get('favorite_color')
         try:
             db.session.commit()
             flash('User Updated Successfully!')
@@ -60,7 +84,7 @@ def update(id):
             flash('Error... Try again!')
             return render_template('update.html', form=form, name_to_update=name_to_update)
     else:
-        return render_template("update.html", form=form, name_to_update=name_to_update)
+        return render_template("update.html", form=form, name_to_update=name_to_update, id=id)
 
 # Create a Form Class
 class NamerForm(FlaskForm):
@@ -77,12 +101,13 @@ def add_user():
     if form.validate_on_submit():
         user = Users.query.filter_by(email=form.email.data).first()
         if user is None:
-            user = Users(name=form.name.data, email=form.email.data)
+            user = Users(name=form.name.data, email=form.email.data, favorite_color=form.favorite_color.data)
             db.session.add(user)
             db.session.commit()
         name = form.name.data
         form.name.data = ''
         form.email.data = ''
+        form.favorite_color = ''
         flash("User Added Successfully!")
     our_users = Users.query.order_by(Users.date_added)
     return render_template('add_user.html', form=form, name=name, our_users=our_users)
@@ -126,39 +151,6 @@ def name():
 
 
 
-
-'''
-@app.route('/login', methods = ['POST', 'GET'])
-def login():
-    if request.method == 'GET':
-        return 'Login via the login Form'
-
-    if request.method == 'POST':
-        id = int(request.form['id'])
-        name = request.form['name']
-        position = request.form['position']
-        #cabinet = int(request.form['cabinet'])
-        #service = request.form['service']
-        #salary = int(request.form['salary'])
-        #contract_number = int(request.form['contract_number'])
-        print(name, type(name))
-        print(position, type(position))
-        #print(cabinet, type(cabinet)) 
-        #print(time, type(time))
-        #print(service, type(service))
-        #print(salary, type(salary))
-        #print(contract_number, type(contract_number))
-        query = 'INSERT INTO doctors (id, name, position) VALUES(%s, "%s", "%s");' % (id, name, position)
-        cursor = mysql.connection.cursor()
-        print(query)
-        
-        cursor.execute(query)
-
-        mysql.connection.commit()
-
-        cursor.close()
-        return f'Done!'
-'''
 
 
 app.run(host='localhost', port=5000, debug=True)
